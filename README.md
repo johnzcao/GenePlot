@@ -54,19 +54,24 @@ plt.show()
 
 ## Advanced Options
 ### GeneInfo  
-* get_gene_info(gene_list = gene_list, region = region_string)   
+* get_gene_info(gene_list, region)   
   
 | Parameter | Default | Description |
 |---|---|---|
+| gene_list | None | A python list object containing names of all genes to search for in the BED file. Only exact matches will be retrieved. |
+| region | None | Chromosomal region string (e.g., 'Chr1:150000000-150500000'), all genes intersecting this region will be retrieved. 'chr1', 'Chr1', and '1' are all valid for the region string. |
 | bed_path | None | The file path to the BED12 annotation. |
 | collapse | True | Whether multiple records of the same name, usually different transcripts of the same gene, are collapsed to a single entry. |  
   
-These options can be set up while initiating GeneInfo (as default) or directly provided to the function: GeneInfo.get_gene_info(bed_path = path, collapse = False)
-Input coordinates follow BED12 (0-based, half-open) standards.  
-When collapse=True, the tool creates a consensus gene model containing the union of all exons for a given gene name. All internal UTRs are removed for cleaner visual representation.
+These options can be set up while initiating GeneInfo (as default) or directly provided to the function: GeneInfo.get_gene_info(bed_path = path, collapse = False)  
+  
+Input coordinates follow BED12 (0-based, half-open) standards.   
+  
+When __collapse=True__, the tool creates a consensus gene model containing the union of all exons for a given gene name. ___All internal UTRs are removed for cleaner visual representation.___
 
 ### GenePlot
-* plot_gene_list(plotting_data, ax)
+* plot_gene_list(plotting_data, ax)  
+___Important note: This function will fail if plotting_data contain genes from multiple chromosomes.___
   
 | Parameter | Default | Description |
 |---|---|---|

@@ -262,9 +262,8 @@ class GeneInfo:
     @staticmethod
     def _normalize_chrom(chrom_str):
         s = str(chrom_str)
-        if s.lower().startswith('chr'):
-            return s[3:]
-        return s
+        res = s[3:].upper() if s.lower().startswith('chr') else s.upper()
+        return "MT" if res == "M" else res
     
     @staticmethod
     def _process_gene_info(gene_info):

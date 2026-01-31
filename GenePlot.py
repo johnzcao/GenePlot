@@ -10,8 +10,6 @@ class GenePlot:
                     'color' : 'blue',
                     'tick_density' : 50,
                     'track_min_gap' : 0.05,
-                    'inherit_xlim' : False,
-                    'collapse' : True,
                     'global_scaling' : None,
                     'font_size' : 12,
                     'range_arrow' : True,
@@ -134,12 +132,11 @@ class GenePlot:
         return ax
         
     def plot_gene(self, plotting_dict, ax, color=None, y_pos = 0, scaling = 1.0, 
-                  inherit_xlim = None, tick_density = None):
+                  inherit_xlim = False, tick_density = None):
         """
         Renders a gene model onto a provided Matplotlib Axes object.
         """
         color = color if color is not None else self.color
-        inherit_xlim = inherit_xlim if inherit_xlim is not None else self.inherit_xlim
         tick_density = tick_density if tick_density is not None else self.tick_density
         # Generate strand markers
         if inherit_xlim:
@@ -217,10 +214,9 @@ class GenePlot:
         return ax
 
     
-    def region_of_interest(self, ax, start, end, color = None):
-        color = color if color else 'orange'
+    def region_of_interest(self, ax, start, end, color = 'orange', alpha = 1):
         target_start, target_end = int(start), int(end)
-        ax.axvspan(target_start,target_end,facecolor = color, alpha = 0.3, zorder=0)
+        ax.axvspan(target_start,target_end,facecolor = color, alpha = alpha, zorder=0)
         return ax
 
 class GeneInfo:

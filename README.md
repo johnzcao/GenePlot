@@ -55,14 +55,14 @@ plt.show()
 ## Advanced Options
 ### GeneInfo  
 * get_gene_info(gene_list = gene_list, region = region_string)   
-These options can be set up while initiating GeneInfo (as default) or directly provided to the function: GeneInfo.get_gene_info(bed_path = path, collapse = False)
-Input coordinates follow BED12 (0-based, half-open) standards.  
   
 | Parameter | Default | Description |
 |---|---|---|
 | bed_path | None | The file path to the BED12 annotation. |
 | collapse | True | Whether multiple records of the same name, usually different transcripts of the same gene, are collapsed to a single entry. |  
-
+  
+These options can be set up while initiating GeneInfo (as default) or directly provided to the function: GeneInfo.get_gene_info(bed_path = path, collapse = False)
+Input coordinates follow BED12 (0-based, half-open) standards.  
 When collapse=True, the tool creates a consensus gene model containing the union of all exons for a given gene name. All internal UTRs are removed for cleaner visual representation.
 
 ### GenePlot

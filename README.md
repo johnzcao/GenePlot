@@ -21,34 +21,39 @@ import numpy as np
 from GenePlot import GeneInfo
 gene_info_gen = GeneInfo(bed_path='annotations.bed', collapse = True)
 
-# Search using a list of gene names
-genes = ['GENE1','GENE2','GENE3']
-plotting_data = gene_info_gen.get_gene_info(gene_list = genes)
+# Searching all genes intersecting a genomic region
+plotting_data_1 = gene_info_gen.get_gene_info(region='Chr1:150000000-150500000')
 
-# Or, searching using genomic region
-plotting_data = gene_info_gen.get_gene_info(region='Chr1:150000000-150500000')
-```
+# Or, search using a list of gene names
+genes = ['RPRD2','ARNT']
+plotting_data_2 = gene_info_gen.get_gene_info(gene_list = genes)
+```  
+
 A combination of gene list and region is allowed.
 
 **2. Plot the result**  
-The GenePlot class handles all the aesthetics and track logic.
+The GenePlot class handles all the aesthetics and track logic. This class enables convenient plotting of multiple regions on different axes.
 ```python
 import matplotlib.pyplot as plt
 from GenePlot import GenePlot
-plotter = GenePlot()
-fig, ax = plt.subplots(1, 1, figsize=[20, 5])
-ax = plotter.plot_gene_list(plotting_data, ax)
+plotter = GenePlot() # initialize plotting engine
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[20, 10])
+ax1 = plotter.plot_gene_list(plotting_data_1, ax1)
+ax2 = plotter.plot_gene_list(plotting_data_2, ax2)
 plt.show()
 ```
-<img width="2000" height="500" alt="example" src="https://github.com/user-attachments/assets/8ea0b397-45fa-4b3c-b117-9d24d05564c9" />
+  
+<img width="2000" height="1000" alt="example" src="https://github.com/user-attachments/assets/e4b14e7f-52a1-4ddc-a5a6-16eae56d4d08" />
+
 
 Adding a region of interest shading using region_of_interest()
 ```python
 fig, ax = plt.subplots(1, 1, figsize=[20, 5])
-ax = plotter.plot_gene_list(plotting_data, ax)
+ax = plotter.plot_gene_list(plotting_data_1, ax)
 ax = plotter.region_of_interest(ax, 150200000, 150300000, color='green', alpha = 0.3)
 plt.show()
 ```
+  
 <img width="2000" height="500" alt="example_roi" src="https://github.com/user-attachments/assets/14843b52-aef1-43d9-9f4e-e3658337c5db" />
 
 

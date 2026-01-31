@@ -13,7 +13,8 @@ pip install .
 Dependencies:
 * numpy>=1.23.0
 * matplotlib>=3.7.0
-1. Load and process BED data  
+    
+**1. Load and process BED data**  
 The GeneInfo class handles file validation and transcript processing. Supports finding gene annotations by gene names and/or by chromosome region
 ```python
 import numpy as np
@@ -29,7 +30,7 @@ plotting_data = gene_info_gen.get_gene_info(region='Chr1:150000000-150500000')
 ```
 A combination of gene list and region is allowed.
 
-2. Plot the result
+**2. Plot the result**  
 The GenePlot class handles all the aesthetics and track logic.
 ```python
 import matplotlib.pyplot as plt

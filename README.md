@@ -15,7 +15,7 @@ Dependencies:
 * matplotlib>=3.7.0
     
 **1. Load and process BED data**  
-The GeneInfo class handles file validation and transcript processing. Supports finding gene annotations by gene names and/or by chromosome region
+The `GeneInfo` class handles file validation and transcript processing. Supports finding gene annotations by gene names and/or by chromosome region
 ```python
 import numpy as np
 from GenePlot import GeneInfo
@@ -32,7 +32,7 @@ plotting_data_2 = gene_info_gen.get_gene_info(gene_list = genes)
 A combination of gene list and region is allowed.
 
 **2. Plot the result**  
-The GenePlot class handles all the aesthetics and track logic. This class enables convenient plotting of multiple regions on different axes.
+The `GenePlot` class handles all the aesthetics and track logic. This class enables convenient plotting of multiple regions on different axes.
 ```python
 import matplotlib.pyplot as plt
 from GenePlot import GenePlot
@@ -42,57 +42,70 @@ ax1 = plotter.plot_gene_list(plotting_data_1, ax1)
 ax2 = plotter.plot_gene_list(plotting_data_2, ax2)
 plt.show()
 ```
+<img width="2000" height="1000" alt="example" src="https://github.com/user-attachments/assets/e4b14e7f-52a1-4ddc-a5a6-16eae56d4d08" />  
   
-<img width="2000" height="1000" alt="example" src="https://github.com/user-attachments/assets/e4b14e7f-52a1-4ddc-a5a6-16eae56d4d08" />
+**3. Customizing the View**
+The viewing window is automatically calculated based on gene coordinates. You can fine-tune this using `padding` or specific `xlim` values.  
+```python
+plotter = GenePlot() # initialize plotting engine
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[20, 10])
+ax1 = plotter.plot_gene_list(plotting_data_1, ax1, padding = 0.1)
+ax2 = plotter.plot_gene_list(plotting_data_1, ax2, xlim = [150200000,150300000])
+plt.show()
+```
+<img width="2000" height="1000" alt="example_2" src="https://github.com/user-attachments/assets/613097d2-4450-47f1-9705-7859926e147e" />
 
-
-Adding a region of interest shading using region_of_interest()
+**4. Highlighting Regions**
+Use `region_of_interest()` to add shaded background highlights to your plots.  
 ```python
 fig, ax = plt.subplots(1, 1, figsize=[20, 5])
 ax = plotter.plot_gene_list(plotting_data_1, ax)
 ax = plotter.region_of_interest(ax, 150200000, 150300000, color='green', alpha = 0.3)
 plt.show()
 ```
-  
 <img width="2000" height="500" alt="example_roi" src="https://github.com/user-attachments/assets/14843b52-aef1-43d9-9f4e-e3658337c5db" />
 
 
 ## Advanced Options
 ### GeneInfo  
-* get_gene_info(gene_list, region)   
+**Method:** `get_gene_info(gene_list, region, **kwargs)`   
   
 | Parameter | Default | Description |
 |---|---|---|
-| gene_list | None | A python list object containing names of all genes to search for in the BED file. Only exact matches will be retrieved. |
-| region | None | Chromosomal region string (e.g., 'Chr1:150000000-150500000'), all genes intersecting this region will be retrieved. 'chr1', 'Chr1', and '1' are all valid for the region string. |
-| bed_path | None | The file path to the BED12 annotation. |
-| collapse | True | Whether multiple records of the same name, usually different transcripts of the same gene, are collapsed to a single entry. |  
+| `gene_list` | `None` | A python list object containing names of all genes to search for in the BED file. Only exact matches will be retrieved. |
+| `region` | `None` | Chromosomal region string (e.g., 'Chr1:150000000-150500000'), all genes intersecting this region will be retrieved. 'chr1', 'Chr1', and '1' are all valid for the region string. |
+| `bed_path` | `None` | The file path to the BED12 annotation. |
+| `collapse` | `True` | Whether multiple records of the same name, usually different transcripts of the same gene, are collapsed to a single entry. |  
   
-These options can be set up while initiating GeneInfo (as default) or directly provided to the function: GeneInfo.get_gene_info(bed_path = path, collapse = False)  
+> [!TIP]
+> Setting up `bed_path` and `collapse` by creatine a GeneInfo instance (as shown in the example) enables multiple searches without having to define them multiple times.    
   
-Input coordinates follow BED12 (0-based, half-open) standards.   
   
-When __collapse=True__, the tool creates a consensus gene model containing the union of all exons for a given gene name. ___All internal UTRs are removed for cleaner visual representation.___
+> [!NOTE]
+> Input coordinates follow BED12 (0-based, half-open) standards.   
+> When __`collapse=True`__, the tool creates a consensus gene model containing the union of all exons for a given gene name. ___All internal UTRs are removed for cleaner visual representation.___
 
 ### GenePlot
-* plot_gene_list(plotting_data, ax)  
-___Important note: This function will fail if plotting_data contain genes from multiple chromosomes.___
+**Method:** `plot_gene_list(plotting_data, ax, **kwargs)`  
+> [!IMPORTANT]
+> ___This function will fail if plotting_data contain genes from multiple chromosomes.___
   
 | Parameter | Default | Description |
 |---|---|---|
-| padding | 0.2 | X-axis padding relative to the total region length. |
-| track_offset | 1 | Vertical distance between tracks. Use to separate genes clustered together. |
-| track_min_gap | 0.05 | Minimum horizontal gap (as fraction of x-axis, e.g., 0.05 = 5%) required to share a track. Smaller value will result in fewer tracks, with higher chance of labels overlapping. |
-| tick_density | 50 | Number of strand markers displayed across the visible window. |
-| color | blue | Default color of gene plots. |
-| global_scaling | None | The width scaling of gene models. Float value to override auto scaling for plots with multiple tracks. |
-| font_size | 12 | Font sizes for all text labels. |
-| range_arrow | True | Toggle the chromosomal range indicator. |
-| arrow_pos | 'top' | Placement of the range indicator: 'top' or 'bottom'. |
+| `padding` | `0.2` | X-axis padding relative to the total region length. |
+| `xlim` | `None` | X-axis range in list format (`[start, end]`) |
+| `track_offset` | `1` | Vertical distance between tracks. Use to separate genes clustered together. |
+| `track_min_gap` | `0.05` | Minimum horizontal gap (as fraction of x-axis, e.g., 0.05 = 5%) required to share a track. Smaller value will result in fewer tracks, with higher chance of labels overlapping. |
+| `tick_density` | `50` | Number of strand markers displayed across the visible window. |
+| `color` | `blue` | Default color of gene plots. |
+| `global_scaling` | `None` | The width scaling of gene models. Float value to override auto scaling for plots with multiple tracks. |
+| `font_size` | `12` | Font sizes for all text labels. |
+| `range_arrow` | `True` | Toggle the chromosomal range indicator. |
+| `arrow_pos` | `'top'` | Placement of the range indicator: 'top' or 'bottom'. |
 
-* region_of_interest(ax, start, end)
+**Method:** `region_of_interest(ax, start, end)`
 
 | Parameter | Default | Description |
 |---|---|---|
-| color | 'orange' | Shading color for region of interest. |
-| alpha | 1 | Opacity of shading, 0 is completely transparent. | 
+| `color` | `'orange'` | Shading color for region of interest. |
+| `alpha` | `1` | Opacity of shading, 0 is completely transparent. | 

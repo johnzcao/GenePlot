@@ -72,7 +72,7 @@ class GenePlot:
                 track_ends.append(end + min_gap)
         return assignments
     
-    def plot_gene_list(self, gene_list, ax, padding=None, track_offset = None, 
+    def plot_gene_list(self, gene_list, ax, padding=None, track_offset = None, xlim = None,
                        color=None, tick_density = None, track_min_gap = None, range_arrow = None, arrow_pos = None):
         """
         Renders a collection of gene models onto a single Matplotlib axes, 
@@ -93,12 +93,13 @@ class GenePlot:
         genes_dict = dict(enumerate(gene_list))
         
         # Determine the global genomic range covered by all genes in the list
-        left_bound, right_bound = min([g['gene_start'] for g in gene_list]), max([g['gene_end'] for g in gene_list])
-        total_length = right_bound - left_bound
-        
-        # Apply padding to the range (max(..., 0) prevents negative genomic coordinates)
-        left_bound = max([left_bound - padding * total_length, 0])
-        right_bound = right_bound + padding * total_length
+        if xlim:
+            left_bound, right_bound = xlim
+        else:
+            left_bound, right_bound = min([g['gene_start'] for g in gene_list]), max([g['gene_end'] for g in gene_list])
+            total_length = right_bound - left_bound
+            left_bound = max([left_bound - padding * total_length, 0])
+            right_bound = right_bound + padding * total_length
         boundary_ticks = [int(left_bound), int(right_bound)]
         ax.set_xlim([left_bound, right_bound])
         ax.set_xticks([])
@@ -142,20 +143,18 @@ class GenePlot:
         if inherit_xlim:
             left_bound, right_bound = ax.get_xlim()
             arrow_gap = (right_bound - left_bound) / tick_density
+            # skip plotting if gene is completely outside the x axis range
+            if plotting_dict['gene_start'] >= right_bound or plotting_dict['gene_end'] <= left_bound: 
+                return ax
         else:
             gene_size = plotting_dict['gene_end'] - plotting_dict['gene_start']
             arrow_gap = gene_size / 15
         direction_markers_x = list(np.arange(plotting_dict['gene_start'], plotting_dict['gene_end'], arrow_gap))
-        if direction_markers_x:
+        if len(direction_markers_x) > 1:
             direction_markers_x.pop(0)
         direction_markers_y = [y_pos for x in direction_markers_x]
         
         direction_markers_type = '4' if plotting_dict['strand'] == '+' else '3' if plotting_dict['strand'] == '-' else None
-    
-        # Text label placement
-        gene_name = plotting_dict['gene_name']
-        midpoint = (plotting_dict['gene_start'] + plotting_dict['gene_end']) / 2
-        ax.text(midpoint, y_pos + 0.2, gene_name, ha='center', va='bottom', style='italic', fontsize=self.font_size)
     
         # 1. Draw Intron line
         ax.hlines(y=y_pos, xmin=plotting_dict['gene_start'], xmax=plotting_dict['gene_end'], 
@@ -173,11 +172,38 @@ class GenePlot:
         if direction_markers_type:
             ax.plot(direction_markers_x, direction_markers_y, marker=direction_markers_type, 
                     ms=8, linestyle='None', color=color)
+
+        # Text label placement
+        gene_name = plotting_dict['gene_name']
+        left_bound, right_bound = ax.get_xlim()
+        view_width = right_bound - left_bound
+        buffer = view_width * 0.05
+        visible_start = max(left_bound, plotting_dict['gene_start'])
+        visible_end = min(right_bound, plotting_dict['gene_end'])
+        if (visible_end - visible_start) < (view_width * 0.005):
+            return ax
+        midpoint = (visible_start + visible_end) / 2
+        if not inherit_xlim:
+            ha = 'center'
+            display_x = midpoint
+        else:
+            # If the midpoint is squeezed too far left
+            if midpoint < left_bound + buffer:
+                ha = 'left'
+                display_x = left_bound + view_width * 0.01
+            # If the midpoint is squeezed too far right
+            elif midpoint > right_bound - buffer:
+                ha = 'right'
+                display_x = right_bound - view_width * 0.01
+            else:
+                ha = 'center'
+                display_x = midpoint
+        ax.text(display_x, y_pos + 0.2, gene_name, ha=ha, va='bottom', style='italic', fontsize=self.font_size)
+        
         return ax
 
     def _range_arrow(self, ax, chrom, xmin, xmax, position='top'):
         y = 1.05 if position == 'top' else -0.05
-        
         ax.annotate(
             '', 
             xy=(xmin, y), 

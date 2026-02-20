@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.colors import is_color_like
 from collections import defaultdict
 
 
@@ -80,7 +81,6 @@ class GenePlot:
         """
         padding = padding if padding is not None else self.padding
         track_offset = track_offset if track_offset is not None else self.track_offset
-        color = color if color is not None else self.color
         tick_density = tick_density if tick_density is not None else self.tick_density
         track_min_gap = track_min_gap if track_min_gap is not None else self.track_min_gap
         range_arrow = range_arrow if range_arrow is not None else self.range_arrow
@@ -137,7 +137,14 @@ class GenePlot:
         """
         Renders a gene model onto a provided Matplotlib Axes object.
         """
-        color = color if color is not None else self.color
+        # color logic: color argument takes priority, then color defined in the plotting_dict. 
+        # If both are absent, use default color
+        plot_color = self.color
+        if plotting_dict['color'] is not None:
+            plot_color = plotting_dict['color']
+        if color is not None:
+            plot_color = color
+            
         tick_density = tick_density if tick_density is not None else self.tick_density
         # Generate strand markers
         if inherit_xlim:
@@ -158,20 +165,20 @@ class GenePlot:
     
         # 1. Draw Intron line
         ax.hlines(y=y_pos, xmin=plotting_dict['gene_start'], xmax=plotting_dict['gene_end'], 
-                  ls='-', lw=1, color=color)
+                  ls='-', lw=1, color=plot_color)
         
         # 2. Draw UTR segments
         ax.hlines(y=[y_pos] * len(plotting_dict['utr_starts']), xmin=plotting_dict['utr_starts'], 
-                  xmax=plotting_dict['utr_ends'], ls='-', lw=8 * scaling, color=color)
+                  xmax=plotting_dict['utr_ends'], ls='-', lw=8 * scaling, color=plot_color)
         
         # 3. Draw CDS segments
         ax.hlines(y=[y_pos] * len(plotting_dict['cds_starts']), xmin=plotting_dict['cds_starts'], 
-                  xmax=plotting_dict['cds_ends'], ls='-', lw=15 * scaling, color=color)
+                  xmax=plotting_dict['cds_ends'], ls='-', lw=15 * scaling, color=plot_color)
         
         # 4. Overlay strand markers
         if direction_markers_type:
             ax.plot(direction_markers_x, direction_markers_y, marker=direction_markers_type, 
-                    ms=8, linestyle='None', color=color)
+                    ms=8, linestyle='None', color=plot_color)
 
         # Text label placement
         gene_name = plotting_dict['gene_name']
@@ -251,6 +258,7 @@ class GeneInfo:
         self.collapse = collapse
         if bed_path:
             self.set_bed_path(bed_path)
+        self.default_color = 'blue'
     
     def set_bed_path(self, bed_path):
         """Public method to update the BED path with validation."""
@@ -347,7 +355,8 @@ class GeneInfo:
             'utr_ends': utr_ends,
             'cds_starts': coding_starts,
             'cds_ends': coding_ends,
-            'strand': gene_info['strand']
+            'strand': gene_info['strand'],
+            'color': gene_info['color']
         }
     
     def get_gene_info(self,bed_file = None,gene_list = None, region = None, collapse = None):
@@ -384,7 +393,8 @@ class GeneInfo:
                              'thickend':int(fields[7]),
                              'blockstarts':[int(x) for x in fields[11].strip(',').split(',')],
                              'blocksizes':[int(x) for x in fields[10].strip(',').split(',')],
-                             'strand':fields[5]}
+                             'strand':fields[5],
+                             'color':self.default_color}
                 processed_gene_info = self._process_gene_info(gene_info)
                 if gene_name not in out_dict:
                     out_dict.update({gene_name:[processed_gene_info]})
@@ -481,9 +491,25 @@ class GeneInfo:
             'utr_ends': clean_utr_e,
             'cds_starts': merged_cds_s,
             'cds_ends': merged_cds_e,
-            'strand': strand
+            'strand': strand,
+            'color': self.default_color
         }    
 
     def _flatten_transcripts(self, gene_transcript_dict):
         all_transcripts = [t for t_list in gene_transcript_dict.values() for t in t_list]
         return all_transcripts
+
+    def set_color(self,gene_list,color = None,genes = None):
+        color = color if color is not None else self.default_color
+        if not is_color_like(color):
+            print(f'Warning: "{color}" is not a valid Matplotlib color. Changes skipped.')
+            return gene_list
+        if not isinstance(genes, (list, tuple, set)) and not genes is None:
+            print('Warning: input genes must be a list, tuple, or set.')
+            return gene_list
+        genes = set(genes) if isinstance(genes, (list, tuple)) else genes
+        for g in gene_list:
+            if genes is None or g['gene_name'] in genes:
+                g['color'] = color
+        return gene_list
+        

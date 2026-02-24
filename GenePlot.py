@@ -6,7 +6,9 @@ from collections import defaultdict
 
 class _Plotter:
     base_default = {'color' : 'blue',
-                    'font_size' : 12,}
+                    'font_size' : 12,
+                    'arrow_scale_x': 1, 
+                    'arrow_scale_y': 1}
     
     def __init__(self, **kwargs):
         for key, val in self.base_default.items():
@@ -21,6 +23,47 @@ class _Plotter:
     def set_config(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    def assign_colors(self, plotting_dict,x_pos,color,inverse_color):
+        starts = np.concatenate([plotting_dict['utr_starts'], plotting_dict['cds_starts']])
+        ends = np.concatenate([plotting_dict['utr_ends'], plotting_dict['cds_ends']])
+        colors = []
+        for x in x_pos:
+            is_thick = np.any((x >= starts) & (x <= ends))
+            colors.append(inverse_color if is_thick else color)
+        return colors
+        
+    def directional_arrows(self, ax, plotting_dict, x_pos,y_pos, strand, xscale = 1, yscale = 1, line_width = 1, color = 'blue', inverse_color = 'white'):
+        if strand not in ['+','-']:
+            print('Strand not specified, directional arrows not drawn.')
+            return ax
+        color_assignments = self.assign_colors(plotting_dict,x_pos,color,inverse_color)
+        x_pos_c, x_pos_ic = [], []
+        y_pos_c, y_pos_ic = [], []
+        for i, c in enumerate(color_assignments):
+            if c == color:
+                x_pos_c.append(x_pos[i])
+                y_pos_c.append(y_pos[i])
+            else:
+                x_pos_ic.append(x_pos[i])
+                y_pos_ic.append(y_pos[i])
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
+        delta_x = (xlim[1] - xlim[0]) / 400 * xscale
+        delta_y = (ylim[1] - ylim[0]) / 100 * yscale
+        if strand == '-':
+            delta_x = -delta_x
+        x_coords_c, x_coords_ic = [], []
+        y_coords_c, y_coords_ic = [], []
+        for x, y in zip(x_pos_c,y_pos_c):
+            x_coords_c.extend([x - delta_x, x, x - delta_x, np.nan])
+            y_coords_c.extend([y - delta_y, y, y + delta_y, np.nan])
+        for x, y in zip(x_pos_ic,y_pos_ic):
+            x_coords_ic.extend([x - delta_x, x, x - delta_x, np.nan])
+            y_coords_ic.extend([y - delta_y, y, y + delta_y, np.nan])
+        ax.plot(x_coords_c,y_coords_c, color = color, lw = line_width, zorder=3, solid_capstyle='round', solid_joinstyle='round')
+        ax.plot(x_coords_ic,y_coords_ic, color = inverse_color, lw = line_width, zorder=3, solid_capstyle='round', solid_joinstyle='round')
+        return ax
 
 class _DataReader:
     def __init__(self, file_path=None, file_format = None):
@@ -151,7 +194,8 @@ class GenePlot(_Plotter):
         return assignments
     
     def plot_gene_list(self, gene_list, ax, padding=None, track_offset = None, xlim = None,
-                       color=None, tick_density = None, track_min_gap = None, range_arrow = None, arrow_pos = None):
+                       color=None, tick_density = None, track_min_gap = None, range_arrow = None, 
+                       arrow_pos = None, direction_marker_thickness = 1.0):
         """
         Renders a collection of gene models onto a single Matplotlib axes, 
         automatically calculating non-overlapping tracks and scaling line widths.
@@ -188,7 +232,7 @@ class GenePlot(_Plotter):
         total_tracks = len(set(track_assignments.values()))
         
         # Set vertical limits based on the number of tracks and the specified offset
-        ax.set_ylim([-1, 1 + (total_tracks - 1) * track_offset])
+        ax.set_ylim([-track_offset, track_offset + (total_tracks - 1) * track_offset])
         
         # Calculate a scaling factor for line thicknesses using exponential decay.
         # This prevents lines from being too thick when many tracks are present.
@@ -200,7 +244,8 @@ class GenePlot(_Plotter):
         # Iterate through genes and draw each one at its assigned vertical position
         for i,gene in genes_dict.items():
             self.plot_gene(gene, ax, y_pos = track_assignments[i] * track_offset, color = color, 
-                           scaling = scaling, inherit_xlim=True, tick_density=tick_density)
+                           scaling = scaling, inherit_xlim=True, tick_density=tick_density, 
+                           direction_marker_thickness = direction_marker_thickness)
         
         # Hide Y-axis ticks as they do not represent quantitative data in this track view
         ax.set_yticks([]) 
@@ -211,7 +256,7 @@ class GenePlot(_Plotter):
         return ax
         
     def plot_gene(self, plotting_dict, ax, color=None, y_pos = 0, scaling = 1.0, 
-                  inherit_xlim = False, tick_density = None):
+                  inherit_xlim = False, tick_density = None, direction_marker_thickness = 1.0):
         """
         Renders a gene model onto a provided Matplotlib Axes object.
         """
@@ -224,23 +269,8 @@ class GenePlot(_Plotter):
             plot_color = color
             
         tick_density = tick_density if tick_density is not None else self.tick_density
-        # Generate strand markers
-        if inherit_xlim:
-            left_bound, right_bound = ax.get_xlim()
-            arrow_gap = (right_bound - left_bound) / tick_density
-            # skip plotting if gene is completely outside the x axis range
-            if plotting_dict['gene_start'] >= right_bound or plotting_dict['gene_end'] <= left_bound: 
-                return ax
-        else:
-            gene_size = plotting_dict['gene_end'] - plotting_dict['gene_start']
-            arrow_gap = gene_size / 15
-        direction_markers_x = list(np.arange(plotting_dict['gene_start'], plotting_dict['gene_end'], arrow_gap))
-        if len(direction_markers_x) > 1:
-            direction_markers_x.pop(0)
-        direction_markers_y = [y_pos for x in direction_markers_x]
         
-        direction_markers_type = '4' if plotting_dict['strand'] == '+' else '3' if plotting_dict['strand'] == '-' else None
-    
+
         # 1. Draw Intron line
         ax.hlines(y=y_pos, xmin=plotting_dict['gene_start'], xmax=plotting_dict['gene_end'], 
                   ls='-', lw=1, color=plot_color)
@@ -254,9 +284,34 @@ class GenePlot(_Plotter):
                   xmax=plotting_dict['cds_ends'], ls='-', lw=15 * scaling, color=plot_color)
         
         # 4. Overlay strand markers
-        if direction_markers_type:
-            ax.plot(direction_markers_x, direction_markers_y, marker=direction_markers_type, 
-                    ms=8, linestyle='None', color=plot_color)
+        if plotting_dict['strand'] in ['+','-']:
+            # Generate strand markers
+            if inherit_xlim:
+                left_bound, right_bound = ax.get_xlim()
+                arrow_gap = (right_bound - left_bound) / tick_density
+                # skip plotting if gene is completely outside the x axis range
+                if plotting_dict['gene_start'] >= right_bound or plotting_dict['gene_end'] <= left_bound: 
+                    return ax
+            else:
+                gene_size = plotting_dict['gene_end'] - plotting_dict['gene_start']
+                arrow_gap = gene_size / 15
+            direction_markers_x = list(np.arange(plotting_dict['gene_start'], plotting_dict['gene_end'], arrow_gap))
+            if len(direction_markers_x) > 1:
+                direction_markers_x.pop(0)
+            if len(direction_markers_x) <= 1:
+                direction_markers_x = [(plotting_dict['gene_start'] + plotting_dict['gene_end']) / 2]
+            direction_markers_y = [y_pos for x in direction_markers_x]
+            ax = self.directional_arrows(ax, 
+                                         plotting_dict, 
+                                         direction_markers_x, 
+                                         direction_markers_y, 
+                                         plotting_dict['strand'], 
+                                         xscale=self.arrow_scale_x, 
+                                         yscale=self.arrow_scale_y * scaling, 
+                                         line_width=direction_marker_thickness, 
+                                         color=plot_color,
+                                         inverse_color='white'
+                                        )
 
         # Text label placement
         gene_name = plotting_dict['gene_name']

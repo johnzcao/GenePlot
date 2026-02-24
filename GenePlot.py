@@ -4,39 +4,116 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import is_color_like
 from collections import defaultdict
 
-
-class GenePlot:
-    default_vals = {'padding' : 0.2,
-                    'track_offset' : 1,
-                    'color' : 'blue',
-                    'tick_density' : 50,
-                    'track_min_gap' : 0.05,
-                    'global_scaling' : None,
-                    'font_size' : 12,
-                    'range_arrow' : True,
-                    'arrow_pos' : 'top'}
-
+class _Plotter:
+    base_default = {'color' : 'blue',
+                    'font_size' : 12,}
+    
     def __init__(self, **kwargs):
-        for key, val in self.default_vals.items():
+        for key, val in self.base_default.items():
             setattr(self, key, val)
-        self.set_config(**kwargs)
-
+        self.xlim = None
+        
     def get_config(self):
         """Returns a dictionary of all current default plotting parameters."""
         # Filters out any internal methods or private attributes starting with '_'
         return {k: v for k, v in vars(self).items() if not k.startswith('_')}
 
     def set_config(self, **kwargs):
-        """
-        Updates default parameters.
-        Example: plotter.set_config(color='red', track_offset=1.5)
-        """
         for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-            else:
-                # Optional: Raise warning or error for non-existent attributes
-                print(f"Warning: '{key}' is not a valid plotting parameter.")
+            setattr(self, key, value)
+
+class _DataReader:
+    def __init__(self, file_path=None, file_format = None):
+        if file_path:
+            self.set_file_path(file_path, file_format)
+        else:
+            self.file_path = None
+    
+    def set_file_path(self, file_path, file_format = None):
+        self._verify_file_format(file_path, file_format = file_format)
+        self.file_path = file_path
+        return file_path
+    
+    @staticmethod
+    def _verify_file_format(file_path, file_format):
+        """Internal helper to validate file existence and basic format."""
+        if file_format is None:
+            raise ValueError(f'Missing file format! Cannot verify file format for {file_path}.')
+        min_fields = {'BED': 3, 'BedGraph': 4}
+        if file_format != 'BED12' and file_format not in min_fields:
+            raise ValueError(f'{file_format} is not one of the supported formats (BED12, {",".join(list(min_fields.keys()))})')
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {path}") 
+        with open(path, 'r') as f:
+            data_found = False
+            # Check only first 10 data lines for performance
+            count = 0
+            for line in f:
+                if line.startswith(('#', 'track', 'browser')) or not line.strip():
+                    continue
+                fields = line.strip().split('\t')
+                if file_format == 'BED12' and len(fields) != 12:
+                    raise ValueError(
+                        f'Format Error: BED12 requires 12 columns. '
+                        f'Found {len(fields)} in line: {line[:50]}...'
+                    )
+                if file_format in min_fields and len(fields) < min_fields[file_format]:
+                    raise ValueError(
+                        f'Format Error: {file_format} requires at least {min_fields[file_format]} columns. '
+                        f'Found {len(fields)} in line: {line[:50]}...'
+                    )
+                data_found = True
+                count += 1
+                if count >= 10: # Sample size is enough for verification
+                    break
+        if not data_found:
+            raise ValueError(f'{file_format} file {path} appears to be empty.')
+    
+    def _region_parser(self,region):
+        chrom, coords = region.split(':')
+        chrom = self._normalize_chrom(chrom)
+        start, end = coords.split('-')
+        start, end = int(start), int(end)
+        return {'chrom': chrom, 'start': start, 'end': end}
+    
+    @staticmethod
+    def _normalize_chrom(chrom_str):
+        s = str(chrom_str)
+        res = s[3:].upper() if s.lower().startswith('chr') else s.upper()
+        return "MT" if res == "M" else res
+
+    @staticmethod
+    def _merge_intervals(starts, ends):
+        """Standard algorithm to merge overlapping intervals."""
+        if not starts: return [], []
+        # Sort by start position
+        intervals = sorted(zip(starts, ends))
+        merged_s, merged_e = [intervals[0][0]], [intervals[0][1]]
+        
+        for s, e in intervals[1:]:
+            if s <= merged_e[-1]: # Overlap
+                merged_e[-1] = max(merged_e[-1], e)
+            else: # Gap
+                merged_s.append(s)
+                merged_e.append(e)
+        return merged_s, merged_e
+    
+
+class GenePlot(_Plotter):
+    gene_default = {'padding' : 0.2,
+                    'track_offset' : 1,
+                    'tick_density' : 50,
+                    'track_min_gap' : 0.05,
+                    'global_scaling' : None,
+                    'range_arrow' : True,
+                    'arrow_pos' : 'top'}
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        for key, val in self.gene_default.items():
+            setattr(self, key, val)
+        self.set_config(**kwargs)
                 
     def _assign_gene_tracks(self, genes_dict, min_gap = None):
         """
@@ -102,6 +179,7 @@ class GenePlot:
             right_bound = right_bound + padding * total_length
         boundary_ticks = [int(left_bound), int(right_bound)]
         ax.set_xlim([left_bound, right_bound])
+        self.xlim = [left_bound, right_bound]
         ax.set_xticks([])
         
         # Determine vertical track placement for each gene to avoid visual overlaps
@@ -193,6 +271,7 @@ class GenePlot:
         if not inherit_xlim:
             ha = 'center'
             display_x = midpoint
+            self.xlim = [left_bound, right_bound]
         else:
             # If the midpoint is squeezed too far left
             if midpoint < left_bound + buffer:
@@ -252,52 +331,12 @@ class GenePlot:
         ax.axvspan(target_start,target_end,facecolor = color, alpha = alpha, zorder=0)
         return ax
 
-class GeneInfo:
-    def __init__(self, bed_path=None, collapse=True):
-        self.bed_path = None
+class GeneInfo(_DataReader):
+    def __init__(self, file_path=None, collapse=True):
+        self.default_format = 'BED12'
         self.collapse = collapse
-        if bed_path:
-            self.set_bed_path(bed_path)
         self.default_color = 'blue'
-    
-    def set_bed_path(self, bed_path):
-        """Public method to update the BED path with validation."""
-        self._verify_bed_file(bed_path)
-        self.bed_path = bed_path
-
-    def _verify_bed_file(self, bed_path):
-        """Internal helper to validate file existence and basic BED12 format."""
-        path = Path(bed_path)
-        
-        if not path.exists():
-            raise FileNotFoundError(f"File not found: {path}") 
-            
-        with open(path, 'r') as f:
-            data_found = False
-            # Check only first 10 data lines for performance
-            count = 0
-            for line in f:
-                if line.startswith(('#', 'track', 'browser')) or not line.strip():
-                    continue
-                
-                fields = line.strip().split('\t')
-                if len(fields) != 12:
-                    raise ValueError(
-                        f"Format Error: BED12 requires 12 columns. "
-                        f"Found {len(fields)} in line: {line[:50]}..."
-                    )
-                data_found = True
-                count += 1
-                if count >= 10: # Sample size is enough for verification
-                    break
-        if not data_found:
-            raise ValueError(f"BED file {path} appears to be empty.")
-
-    @staticmethod
-    def _normalize_chrom(chrom_str):
-        s = str(chrom_str)
-        res = s[3:].upper() if s.lower().startswith('chr') else s.upper()
-        return "MT" if res == "M" else res
+        super().__init__(file_path = file_path, file_format = self.default_format)
     
     @staticmethod
     def _process_gene_info(gene_info):
@@ -359,21 +398,19 @@ class GeneInfo:
             'color': gene_info['color']
         }
     
-    def get_gene_info(self,bed_file = None,gene_list = None, region = None, collapse = None):
-        bed_file = bed_file if bed_file is not None else self.bed_path
+    def get_gene_info(self,file_path = None,gene_list = None, region = None, collapse = None):
+        file_path = file_path if file_path is not None else self.file_path
         collapse = collapse if collapse is not None else self.collapse
-        if bed_file is None:
-            raise ValueError('No BED file provided. Use GeneInfo.set_bed_path(path) to define path or direclty provide path using path=... argument')
+        if file_path is None:
+            raise ValueError('No BED file provided. Use GeneInfo.set_file_path(path) to define path or direclty provide path using path=... argument')
         if gene_list is None and region is None:
             raise ValueError('Missing target information. Either gene list or region must be provided.')
         gene_set = set(gene_list) if gene_list else set()
         if region:
-            target_chrom, coords = region.split(':')
-            target_chrom = self._normalize_chrom(target_chrom)
-            target_start, target_end = coords.split('-')
-            target_start, target_end = int(target_start), int(target_end)
+            parsed_region = self._region_parser(region)
+            target_chrom, target_start, target_end = parsed_region['chrom'], parsed_region['start'],parsed_region['end']
         out_dict = {}
-        with open(bed_file, 'r') as f:
+        with open(file_path, 'r') as f:
             for line in f:
                 fields = line.strip().split('\t')
                 chrom, start, end, gene_name = fields[0:4]
@@ -406,22 +443,6 @@ class GeneInfo:
             else:
                 out_list = self._flatten_transcripts(out_dict)
         return out_list
-
-    @staticmethod
-    def _merge_intervals(starts, ends):
-        """Standard algorithm to merge overlapping intervals."""
-        if not starts: return [], []
-        # Sort by start position
-        intervals = sorted(zip(starts, ends))
-        merged_s, merged_e = [intervals[0][0]], [intervals[0][1]]
-        
-        for s, e in intervals[1:]:
-            if s <= merged_e[-1]: # Overlap
-                merged_e[-1] = max(merged_e[-1], e)
-            else: # Gap
-                merged_s.append(s)
-                merged_e.append(e)
-        return merged_s, merged_e
     
     def _collapse_transcripts(self, transcript_list):
         """

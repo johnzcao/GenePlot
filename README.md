@@ -22,11 +22,15 @@ from GenePlot import GeneInfo
 gene_info_gen = GeneInfo(bed_path='annotations.bed', collapse = True)
 
 # Searching all genes intersecting a genomic region
-plotting_data_1 = gene_info_gen.get_gene_info(region='Chr1:150000000-150500000')
+gene_info_1 = gene_info_gen.get_gene_info(region='Chr1:150000000-150500000')
+plotting_data_1 = gene_info_1['genes']
+region_info_1 = gene_info_1['region']
 
 # Or, search using a list of gene names
 genes = ['RPRD2','ARNT']
-plotting_data_2 = gene_info_gen.get_gene_info(gene_list = genes)
+gene_info_2 = gene_info_gen.get_gene_info(gene_list = genes)
+plotting_data_2 = gene_info_2['genes']
+region_info_2 = gene_info_2['region']
 ```  
 
 A combination of gene list and region is allowed.  
@@ -44,11 +48,14 @@ import matplotlib.pyplot as plt
 from GenePlot import GenePlot
 plotter = GenePlot() # initialize plotting engine
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[20, 10])
-ax1 = plotter.plot_gene_list(plotting_data_1, ax1)
-ax2 = plotter.plot_gene_list(plotting_data_2, ax2)
+ax1 = plotter.plot_gene_list(plotting_data_1, ax1, backup_region = region_region_info_1)
+ax2 = plotter.plot_gene_list(plotting_data_2, ax2, backup_region = region_region_info_2)
 plt.show()
 ```
 <img width="2000" height="1000" alt="example" src="https://github.com/user-attachments/assets/e4b14e7f-52a1-4ddc-a5a6-16eae56d4d08" />  
+  
+> [!TIP]  
+> `backup_region` ensures that even if the region contains no gene (empty `plotting_data`), the axis range is correctly set up.  
   
 **3. Customizing the View**
 The viewing window is automatically calculated based on gene coordinates. You can fine-tune this using `padding` or specific `xlim` values.  
@@ -115,6 +122,7 @@ plt.show()
 | `font_size` | `12` | Font sizes for all text labels. |
 | `range_arrow` | `True` | Toggle the chromosomal range indicator. |
 | `arrow_pos` | `'top'` | Placement of the range indicator: 'top' or 'bottom'. |
+| `backup_region` | `None` | A dictionary containing information of the display window. Auto generated when using get_gene_info() with a region string. |
 
 **Method:** `region_of_interest(ax, start, end)`
 

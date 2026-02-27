@@ -19,7 +19,7 @@ The `GeneInfo` class handles file validation and transcript processing. Suppor
 ```python
 import numpy as np
 from GenePlot import GeneInfo
-gene_info_gen = GeneInfo(bed_path='annotations.bed', collapse = True)
+gene_info_gen = GeneInfo(file_path='annotations.bed', collapse = True)
 
 # Searching all genes intersecting a genomic region
 gene_info_1 = gene_info_gen.get_gene_info(region='Chr1:150000000-150500000')
@@ -37,7 +37,7 @@ A combination of gene list and region is allowed.
 > [!TIP]
 > Colors can be assigned to individual genes in the plotting data by the set_color method:
 > ```python
-> gene_info_gen.set_color(plotting_data,'red',['CA14','CIART'])
+> gene_info_gen.set_color(plotting_data_1,'red',['CA14','CIART'])
 > ```
 > Genes in the provided list that are not in plotting data are simply ignored.
 
@@ -82,16 +82,17 @@ plt.show()
 ## Advanced Options
 ### GeneInfo  
 **Method:** `get_gene_info(gene_list, region, **kwargs)`   
+**Output:** A dictionary with two keys: "`genes`" containing all plotting information, and "`region`" containing the parsed region information.
   
 | Parameter | Default | Description |
 |---|---|---|
 | `gene_list` | `None` | A python list object containing names of all genes to search for in the BED file. Only exact matches will be retrieved. |
 | `region` | `None` | Chromosomal region string (e.g., 'Chr1:150000000-150500000'), all genes intersecting this region will be retrieved. 'chr1', 'Chr1', and '1' are all valid for the region string. |
-| `bed_path` | `None` | The file path to the BED12 annotation. |
+| `file_path` | `None` | The file path to the BED12 annotation. |
 | `collapse` | `True` | Whether multiple records of the same name, usually different transcripts of the same gene, are collapsed to a single entry. |  
   
 > [!TIP]
-> Setting up `bed_path` and `collapse` by creating a GeneInfo instance (as shown in the example) enables multiple searches without having to define them multiple times.    
+> Setting up `file_path` and `collapse` by creating a GeneInfo instance (as shown in the example) enables multiple searches without having to define them multiple times.    
   
   
 > [!NOTE]

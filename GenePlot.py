@@ -195,7 +195,7 @@ class GenePlot(_Plotter):
     
     def plot_gene_list(self, gene_list, ax, padding=None, track_offset = None, xlim = None,
                        color=None, tick_density = None, track_min_gap = None, range_arrow = None, 
-                       arrow_pos = None, direction_marker_thickness = 1.0):
+                       arrow_pos = None, direction_marker_thickness = 1.0, backup_region = None):
         """
         Renders a collection of gene models onto a single Matplotlib axes, 
         automatically calculating non-overlapping tracks and scaling line widths.
@@ -206,6 +206,21 @@ class GenePlot(_Plotter):
         track_min_gap = track_min_gap if track_min_gap is not None else self.track_min_gap
         range_arrow = range_arrow if range_arrow is not None else self.range_arrow
         arrow_pos = arrow_pos if arrow_pos is not None else self.arrow_pos
+        if not gene_list:
+            # Prioritize the padded xlim if provided, otherwise use backup_region
+            if xlim:
+                ax.set_xlim(xlim)
+                l_bound, r_bound = xlim
+            elif backup_region:
+                l_bound, r_bound = backup_region['start'], backup_region['end']
+                ax.set_xlim([l_bound, r_bound])
+            if range_arrow and (xlim or backup_region):
+                # Use the chrom from backup_region if available
+                chrom = backup_region['chrom'] if backup_region else "Unknown"
+                self._range_arrow(ax, chrom=chrom, xmin=l_bound, xmax=r_bound, position=arrow_pos)
+            ax.set_yticks([])
+            ax.set_xticks([]) # Keep it consistent with the populated plot
+            return ax
         # Verify all genes belong to the same chromosome to ensure a valid X-axis scale
         if len(set([g['chrom'] for g in gene_list])) > 1:
             raise ValueError('Genes from multiple chromosomes provided. Only one chromosome allowed.')
@@ -497,7 +512,7 @@ class GeneInfo(_DataReader):
                 out_list = [self._collapse_transcripts(g) for g in out_dict.values()]
             else:
                 out_list = self._flatten_transcripts(out_dict)
-        return out_list
+        return {'region': parsed_region, 'genes': out_list}
     
     def _collapse_transcripts(self, transcript_list):
         """

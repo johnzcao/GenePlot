@@ -48,8 +48,8 @@ import matplotlib.pyplot as plt
 from GenePlot import GenePlot
 plotter = GenePlot() # initialize plotting engine
 fig, (ax1, ax2) = plt.subplots(2, 1, figsize=[20, 10])
-ax1 = plotter.plot_gene_list(plotting_data_1, ax1, backup_region = region_region_info_1)
-ax2 = plotter.plot_gene_list(plotting_data_2, ax2, backup_region = region_region_info_2)
+ax1 = plotter.plot_gene_list(plotting_data_1, ax1, backup_region = region_info_1)
+ax2 = plotter.plot_gene_list(plotting_data_2, ax2, backup_region = region_info_2)
 plt.show()
 ```
 <img width="2000" height="1000" alt="example" src="https://github.com/user-attachments/assets/e4b14e7f-52a1-4ddc-a5a6-16eae56d4d08" />  
